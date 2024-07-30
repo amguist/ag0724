@@ -4,8 +4,11 @@ import com.amguist.pos.models.RentalPaymentReceipt;
 import com.amguist.pos.models.RentalPaymentRequest;
 import com.amguist.pos.models.ToolType;
 import com.amguist.pos.persistence.Inventory;
+import jakarta.validation.*;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.validation.annotation.Validated;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -13,6 +16,7 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -24,14 +28,21 @@ public class PaymentService {
 
     private static final String DATE_FORMAT_STR     =   "mm/dd/yy";
     private static final String EMPTY_STR           =   "";
-    private static final String DECIMAL_FORMAT_STR  =   "#.##";
 
     private static final Set<DayOfWeek> WEEKEND     = EnumSet.of(SATURDAY,SUNDAY);
 
     public Optional<RentalPaymentReceipt> performCheckout(RentalPaymentRequest request) {
+
         RentalPaymentReceipt receipt = new RentalPaymentReceipt();
-        assignRequestValuesToReceipt(receipt, request);
-        assignToolValuesToReceipt(receipt, request);
+        ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
+        Validator validator = factory.getValidator();
+        Set<ConstraintViolation<RentalPaymentRequest>> violations = validator.validate(request);
+        if (!violations.isEmpty()) {
+            violations.forEach(violation -> receipt.addViolation(violation.getMessage()));
+        } else {
+            assignRequestValuesToReceipt(receipt, request);
+            assignToolValuesToReceipt(receipt, request);
+        }
         return Optional.of(receipt);
     }
 
@@ -100,16 +111,20 @@ public class PaymentService {
             var numberOfDaysOnWeekend = startDate.datesUntil(endDate.plusDays(1)).filter(currentDate -> WEEKEND.contains(currentDate.getDayOfWeek())).count();
 
             // Exclude Weekends For Specific Type
-            if(!toolType.getWeekendCharge()) {
+            if(Boolean.FALSE.equals(toolType.getWeekendCharge())) {
                 totalNumberOfDays -= numberOfDaysOnWeekend;
             }
 
-            if(!toolType.getHolidayCharge()) {
+            if(Boolean.FALSE.equals(toolType.getHolidayCharge())) {
                 if(shouldExcludeFridayBeforeHoliday(startDate, endDate)) {
                     totalNumberOfDays--;
                 }
 
                 if(shouldExcludeMondayFollowingHoliday(startDate, endDate)) {
+                    totalNumberOfDays--;
+                }
+
+                if(shouldExcludeMondayLaborDayHoliday(startDate, endDate)) {
                     totalNumberOfDays--;
                 }
             }
@@ -120,13 +135,26 @@ public class PaymentService {
         }
     }
 
-    private boolean shouldExcludeMondayFollowingHoliday(LocalDate startDate, LocalDate endDate) {
-        return startDate.datesUntil(endDate.plusDays(1)).allMatch(localDate -> {
-            if(localDate.getDayOfWeek().equals(SUNDAY) && localDate.getMonth().equals(Month.JULY) && localDate.getDayOfMonth() == 4) {
-                return true;
+    private boolean shouldExcludeMondayLaborDayHoliday(LocalDate startDate, LocalDate endDate) {
+        AtomicBoolean shouldRemoveDay = new AtomicBoolean(false);
+        var laborDay = startDate.with(TemporalAdjusters.firstInMonth(MONDAY));
+
+        startDate.datesUntil(endDate.plusDays(1)).forEach(localDate -> {
+            if(localDate.getMonth().equals(Month.SEPTEMBER) && localDate.isEqual(laborDay)) {
+                shouldRemoveDay.set(true);
             }
-            return false;
         });
+        return shouldRemoveDay.get();
+    }
+
+    private boolean shouldExcludeMondayFollowingHoliday(LocalDate startDate, LocalDate endDate) {
+        AtomicBoolean shouldRemoveDay = new AtomicBoolean(false);
+        startDate.datesUntil(endDate.plusDays(1)).forEach(localDate -> {
+            if(localDate.getDayOfWeek().equals(SUNDAY) && localDate.getMonth().equals(Month.JULY) && localDate.getDayOfMonth() == 4) {
+                shouldRemoveDay.set(true);
+            }
+        });
+        return  shouldRemoveDay.get();
     }
 
     private boolean shouldExcludeFridayBeforeHoliday(LocalDate startDate, LocalDate endDate) {

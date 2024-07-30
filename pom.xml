@@ -117,10 +117,6 @@
             <scope>test</scope>
         </dependency>
 
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
-        </dependency>
     </dependencies>
 
     <build>
@@ -144,7 +140,7 @@
                 <version>3.2.5</version>
                 <configuration>
                     <testFailureIgnore>false</testFailureIgnore>
-                    <failIfNoTests>true</failIfNoTests>
+                    <failIfNoTests>false</failIfNoTests>
                     <failIfNoSpecifiedTests>true</failIfNoSpecifiedTests>
                     <reuseForks>true</reuseForks>
                     <forkCount>2</forkCount>

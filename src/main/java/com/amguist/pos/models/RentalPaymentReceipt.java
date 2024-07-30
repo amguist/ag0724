@@ -4,6 +4,8 @@ import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 
 @Data
 @Slf4j
@@ -23,6 +25,15 @@ public class RentalPaymentReceipt {
     private Integer discountPercentage;
     private BigDecimal discountAmount;
     private BigDecimal finalCharge;
+
+    private List<String> violations = new ArrayList<>();
+
+    public void addViolation(String violation) {
+        this.violations.add(violation);
+    }
+    public void printViolations() {
+        violations.forEach(log::info);
+    }
 
     public void printReceipt() {
         log.info("************* Receipt *************");

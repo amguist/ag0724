@@ -24,11 +24,16 @@ public class PaymentServiceTest {
         paymentService = new PaymentService();
     }
 
-    /*
-        This is actually test number #2 as test number #1 is based on the execution of the
-        ReST URL execution, which will return back the error response to the customer stating that
-        the value of the discount needs to be between values of 0 and 100.
-     */
+    @Test
+    public void whenRequestHasValidationErrorTest() {
+        log.info("");
+        RentalPaymentRequest request = DataHelper.readValueFromResource("src/test/resources/rentals/rental_data_1.json", RentalPaymentRequest.class);
+        var paymentResult = paymentService.performCheckout(request);
+        log.info("****** TEST 1 *******");
+        paymentResult.ifPresent(RentalPaymentReceipt::printViolations);
+        log.info("");
+    }
+
     @Test
     public void whenToolIsLadderTest() {
         log.info("");
